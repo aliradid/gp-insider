@@ -269,42 +269,13 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ── SIDEBAR — API KEY ─────────────────────────────────────────────────────
-with st.sidebar:
-    st.markdown("### ⚙️ Settings")
-    st.markdown("---")
-
-    api_key = st.text_input(
-        "Anthropic API Key",
-        type="password",
-        placeholder="sk-ant-api03-...",
-        help="Get your key at console.anthropic.com",
-        value=st.session_state.get("api_key", "")
-    )
-    if api_key:
-        st.session_state["api_key"] = api_key
-        if api_key.startswith("sk-ant-"):
-            masked = api_key[:16] + "..." + api_key[-4:]
-            st.success(f"✓ Key saved  `{masked}`")
-        else:
-            st.error("Must start with sk-ant-")
-
-    st.markdown("---")
-    st.markdown("""
-    <div style="font-family:'DM Mono',monospace;font-size:10px;color:#3a3835;line-height:1.8">
-    Get your free API key:<br>
-    console.anthropic.com<br><br>
-    Cost per scan: ~$0.05
-    </div>
-    """, unsafe_allow_html=True)
-
 # ── CONTROLS ─────────────────────────────────────────────────────────────
-col1, col2 = st.columns([2, 1])
+col_tone, col_btn = st.columns([3, 1])
 
-with col1:
+with col_tone:
     tone = st.selectbox("Channel Tone", list(TONES.keys()), index=0)
 
-with col2:
+with col_btn:
     st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
     scan_clicked = st.button("⚡  SCAN NOW")
 
@@ -440,22 +411,24 @@ def render_card(s):
 
 # ── MAIN TRIGGER ─────────────────────────────────────────────────────────
 if scan_clicked:
-    key = st.session_state.get("api_key", "").strip()
-    if not key or not key.startswith("sk-ant-"):
-        st.error("⚠️  Add your Anthropic API key in the sidebar first (click the arrow top-left)")
-    else:
-        tone_desc = TONES[tone]
-        with st.spinner("🔍  Searching MotoGP news outlets..."):
-            try:
-                data = run_scan(key, tone_desc)
-                st.session_state["last_scan"] = data
-                st.session_state["last_scan_time"] = datetime.now().strftime("%d %b %Y at %H:%M")
-            except anthropic.AuthenticationError:
-                st.error("❌  Invalid API key. Check console.anthropic.com")
-                st.stop()
-            except Exception as e:
-                st.error(f"❌  Error: {str(e)}")
-                st.stop()
+    try:
+        key = st.secrets["ANTHROPIC_API_KEY"]
+    except Exception:
+        st.error("⚠️  API key not found. Add it in Streamlit → Manage app → Settings → Secrets")
+        st.stop()
+
+    tone_desc = TONES[tone]
+    with st.spinner("🔍  Searching MotoGP news outlets..."):
+        try:
+            data = run_scan(key, tone_desc)
+            st.session_state["last_scan"] = data
+            st.session_state["last_scan_time"] = datetime.now().strftime("%d %b %Y at %H:%M")
+        except anthropic.AuthenticationError:
+            st.error("❌  Invalid API key. Check console.anthropic.com")
+            st.stop()
+        except Exception as e:
+            st.error(f"❌  Error: {str(e)}")
+            st.stop()
 
 # ── RENDER RESULTS ────────────────────────────────────────────────────────
 if "last_scan" in st.session_state:
